@@ -22,6 +22,10 @@ namespace Game {
 
         private bool _isJumping = false;
 
+        private AnimGraphParameter _speedParameter;
+        private AnimGraphParameter _jumpParameter;
+        private AnimGraphParameter _danceParameter;
+
         // Movement
         [ExpandGroups]
         [Tooltip("The character model"), EditorDisplay(MOVEMENT_GROUP, "Character"), EditorOrder(2)]
@@ -56,10 +60,18 @@ namespace Game {
 
         [Tooltip("Determines the min and max pitch value for the camera"), EditorDisplay(CAMERA_GROUP, "Pitch Min Max"), EditorOrder(12)]
         public Vector2 PitchMinMax { get; set; } = new Vector2(-45, 45);
+        public AnimatedModel AnimatedModel;
+
+        [Range(0f, 1f)]
+        public float AnimWalkSpeed = 0.0f;
 
 
         public override void OnStart() {
             _controller = (CharacterController)Actor;
+
+            _speedParameter = AnimatedModel.GetParameter("speed");
+            _jumpParameter = AnimatedModel.GetParameter("isJumping");
+            _danceParameter = AnimatedModel.GetParameter("isDancing");
 
             if (!CameraView || !CharacterObj) {
                 Debug.LogError("No Character or Camera assigned!");
@@ -67,6 +79,11 @@ namespace Game {
             }
 
             _defaultFov = CameraView.FieldOfView;
+        }
+
+        public override void OnUpdate() {
+            Dance();
+            _jumpParameter.Value = _isJumping;
         }
 
         public override void OnFixedUpdate() {
@@ -87,8 +104,6 @@ namespace Game {
 
         private void HandleCameraOrientation() {
             if (_isJumping) return;
-            //CameraView.Parent.Orientation = Quaternion.Lerp(CameraView.Parent.Orientation, Quaternion.Euler(Vector3.Up * _inputH * RotationSpeed), Time.DeltaTime * CameraLag);
-            //CharacterObj.Orientation = Quaternion.Euler(Vector3.Up * _inputH * RotationSpeed);
             CameraView.Parent.EulerAngles += Vector3.Up * _inputH * RotationSpeed * Time.DeltaTime;
             CharacterObj.EulerAngles += Vector3.Up * _inputH * RotationSpeed * Time.DeltaTime;
         }
@@ -115,10 +130,20 @@ namespace Game {
             _velocity.Y += Gravity * Time.DeltaTime;
             _movementDirection += (_velocity * 0.5f);
         }
+        
+        private void HandleWalkAnimation() {
+            _speedParameter.Value = Math.Abs(_inputV) > 0f ? 1f : 0f;
+        }
 
         private void ApplyMovementToController() {
             // Apply controller movement, evaluate whether we are sprinting or not
+            //_speedParameter.Value = _movementDirection.LengthSquared > 0.1f ? 0.0f : .0f;
+            //Debug.Log($"Movement: {_movement.LengthSquared}");
             _controller.Move(_movementDirection * Time.DeltaTime * (Input.GetAction("Sprint") ? SprintSpeed : Speed));
+        }
+
+        private void Dance() {
+            _danceParameter.Value = Input.GetAction("Dance") ? true : false;
         }
 
         private void HandlePlayerMovement() {
@@ -127,6 +152,7 @@ namespace Game {
             HandleJumping();
             ApplyGravity();
             ApplyMovementToController();
+            HandleWalkAnimation();
         }
     }
 }
